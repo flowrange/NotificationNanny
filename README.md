@@ -1,32 +1,21 @@
-# NotificationNanny — flowrange fork
+# NotificationNanny
 
-This is [flowrange's fork](https://github.com/flowrange/NotificationNanny) of
-[chessper53/NotificationNanny](https://github.com/chessper53/NotificationNanny),
-with a fix for dismissing notifications on **French-language macOS**.
+## 🇫🇷 Français
 
-## What this fork changes
+Fork de [NotificationNanny](https://github.com/chessper53/NotificationNanny)
+corrigeant la fermeture des notifications sur macOS en français. Consultez le
+projet d’origine pour les fonctionnalités et l’utilisation.
 
-Upstream's notification dismissal code matches the English accessibility action
-names `Close` and `Clear All`. On French macOS, Notification Center exposes
-`Fermer` and `Tout effacer` instead. The custom toast could disappear while its
-native notification stayed behind, causing old notifications to reappear later.
+L’application cherchait `Close` et `Clear All`, mais macOS renvoie `Fermer` et
+`Tout effacer` en français : les notifications fermées pouvaient réapparaître.
+Le correctif utilise les traductions du système pour les supprimer réellement,
+y compris dans le Centre de notifications. Vérifié en français ; l’anglais reste
+pris en charge.
 
-This fork:
+### Compilation
 
-- Resolves close actions using Notification Center's own translations and passes
-  the exact accessibility action token back to macOS. English actions remain
-  supported; the same lookup also recognizes translations installed by macOS.
-- Remembers a dismissed custom toast even if the native close attempt fails, so
-  a later refresh does not recreate it while the same native banner remains.
-- Includes regression tests for French and English action names, unrelated
-  actions, and dismissed-toast bookkeeping.
-
-The close-action fix was verified on French macOS: the test notification was
-removed from both the screen and Notification Center's delivered-notification
-history. It depends on Notification Center's internal localization resources,
-which Apple can change in a macOS update.
-
-## Build this fork
+Sur macOS, avec l’[environnement de compilation requis](docs/ARCHITECTURE.md)
+(Xcode recommandé) :
 
 ```sh
 git clone https://github.com/flowrange/NotificationNanny.git
@@ -34,31 +23,58 @@ cd NotificationNanny
 ./scripts/build-app.sh
 ```
 
-The resulting app is `build/NotificationNanny.app`. Use macOS and the build setup
-described in [the architecture guide](docs/ARCHITECTURE.md), which recommends full
-Xcode; Command Line Tools compatibility depends on the SDK and compiler version.
-Launch the app and grant Accessibility access when requested. Replacing an
-existing build requires renewing that permission.
+Lancez `build/NotificationNanny.app` et accordez l’accès Accessibilité.
+Cette autorisation peut devoir être renouvelée après remplacement de l’app.
+Tests : `./scripts/test.sh`.
 
-Run the regression tests with `./scripts/test.sh`.
+Pas de version précompilée pour ce fork. Les versions officielles et Homebrew
+n’incluent pas ce correctif ; une mise à jour officielle peut le remplacer.
 
-There is no binary release of this fork yet. Upstream downloads and Homebrew
-packages do not include this fork's patch. An upstream update can replace a
-locally installed patched build.
+### Crédits
 
-For general features, screenshots, usage instructions, and upstream releases,
-see the [original NotificationNanny project](https://github.com/chessper53/NotificationNanny).
+- [chessper53](https://github.com/chessper53) et les
+  [contributeurs du projet d’origine](https://github.com/chessper53/NotificationNanny/graphs/contributors) : application d’origine.
+- [flowrange](https://github.com/flowrange) : fork et validation sur macOS en français.
+- [Codex](https://github.com/openai/codex), assistant d’OpenAI : diagnostic, correctif et tests.
 
-## Contributors
+Licence [MIT](LICENSE).
+
+---
+
+## 🇬🇧 English
+
+A fork of [NotificationNanny](https://github.com/chessper53/NotificationNanny)
+that fixes notification dismissal on French-language macOS. See the original
+project for features and usage instructions.
+
+The app looked for `Close` and `Clear All`, but French macOS returns `Fermer`
+and `Tout effacer`, so dismissed notifications could reappear. This fix uses
+the system’s translations to remove them from both the screen and Notification
+Center. Verified in French; English remains supported.
+
+### Build
+
+On macOS, with the [required build environment](docs/ARCHITECTURE.md)
+(Xcode recommended):
+
+```sh
+git clone https://github.com/flowrange/NotificationNanny.git
+cd NotificationNanny
+./scripts/build-app.sh
+```
+
+Launch `build/NotificationNanny.app` and grant Accessibility access.
+You may need to renew this permission after replacing the app.
+Tests: `./scripts/test.sh`.
+
+No prebuilt release is available for this fork. Official and Homebrew builds
+do not include this fix; an official update may overwrite it.
+
+### Credits
 
 - [chessper53](https://github.com/chessper53) and the
-  [upstream contributors](https://github.com/chessper53/NotificationNanny/graphs/contributors)
-  — original application and ongoing upstream development.
-- [flowrange](https://github.com/flowrange) — fork maintenance, bug reproduction,
-  and validation on French macOS.
-- [Codex](https://github.com/openai/codex), OpenAI's AI coding assistant —
-  diagnosis, implementation, regression tests, and fork documentation.
+  [upstream contributors](https://github.com/chessper53/NotificationNanny/graphs/contributors): original application.
+- [flowrange](https://github.com/flowrange): fork and validation on French macOS.
+- [Codex](https://github.com/openai/codex), OpenAI’s coding assistant: diagnosis, fix, and tests.
 
-## License
-
-Released under the [MIT License](LICENSE).
+[MIT License](LICENSE).
