@@ -214,7 +214,7 @@ package final class NotificationRepositioner: ObservableObject {
         nativePiles.removeAll()
         followTimer?.cancel()
         followTimer = nil
-        closedBannerIDs.removeAll()
+        bannerDismissals.removeAll()
         unreadableBannerSweeps.removeAll()
         loggedSkippedKeys.removeAll()
         resolver.invalidateAll()
@@ -543,11 +543,11 @@ package final class NotificationRepositioner: ObservableObject {
         log.debug("repositionVisibleWindows: \(windows.count) window(s) from ncApp")
         sweepBanners = [:]
         defer { sweepBanners = nil }
-        if !dismissTimers.armedIDs.isEmpty || !closedBannerIDs.isEmpty || !unreadableBannerSweeps.isEmpty
+        if !dismissTimers.armedIDs.isEmpty || !bannerDismissals.isEmpty || !unreadableBannerSweeps.isEmpty
             || !bannerFirstSeen.isEmpty {
             let present = Set(windows.flatMap { banners(in: $0) }.compactMap(\.id))
             dismissTimers.prune(keeping: present)
-            closedBannerIDs.formIntersection(present)
+            bannerDismissals.prune(keeping: present)
             bannerFirstSeen = bannerFirstSeen.filter { present.contains($0.key) }
             unreadableBannerSweeps = unreadableBannerSweeps.filter { present.contains($0.key) }
         }
@@ -688,9 +688,7 @@ package final class NotificationRepositioner: ObservableObject {
     }
     /// Custom overlays per NC window, top to bottom; see `syncCustomPile`.
     private var customPiles: [CFHashCode: [PileSlot]] = [:]
-    /// Banners closed through their Close action. macOS takes a moment to remove
-    /// them, and a sweep in that moment must not give them a fresh overlay.
-    private var closedBannerIDs: Set<String> = []
+    private let bannerDismissals = BannerDismissals()
     /// When each banner was first seen (system uptime), for ordering a custom pile.
     private var bannerFirstSeen: [String: Double] = [:]
     /// Sweeps a banner's content could not be read in, so it gets a plain overlay
@@ -1462,19 +1460,23 @@ package final class NotificationRepositioner: ObservableObject {
         guard let delay = settings?.autoDismissSeconds, delay > 0 else { return true }
         let ids = banners(in: window).compactMap(\.id)
         guard !ids.isEmpty else { return false }
-        dismissTimers.arm(ids, delay: delay) { [weak self] id in
+        dismissTimers.arm(ids.filter { !bannerDismissals.contains($0) }, delay: delay) { [weak self] id in
             self?.closeBanner(id: id, reason: "Auto-dismiss")
         }
         return true
     }
 
-    /// Closes one banner through its own Close action, the same as clicking its ✕
+    /// Retires an overlay even if the native close fails. Attempts to close its
+    /// underlying banner through its own Close action, the same as clicking its ✕
     /// (Clear All for several notifications of one app merged into a stack).
     /// The host window stays put, so the banners around it are unaffected.
-    /// Returns false only when the banner is still up and offers no Close action;
-    /// a banner that is already gone counts as closed.
+    /// The result describes native removal; a banner already gone counts as closed.
     @discardableResult
     private func closeBanner(id: String, reason: String) -> Bool {
+        bannerDismissals.dismiss(id) { closeNativeBanner(id: id, reason: reason) }
+    }
+
+    private func closeNativeBanner(id: String, reason: String) -> Bool {
         guard let ncApp else { return false }
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(ncApp, kAXWindowsAttribute as CFString, &value) == .success,
@@ -1485,8 +1487,7 @@ package final class NotificationRepositioner: ObservableObject {
                 // offers Clear All instead of Close.
                 let closed = banner.performCustomAction(named: "Close")
                     || banner.performCustomAction(named: "Clear All")
-                if closed { closedBannerIDs.insert(id) }
-                logger.log("\(reason) — \(closed ? "closed the banner" : "banner has no Close action")",
+                logger.log("\(reason) — \(closed ? "closed the banner" : "native close failed; overlay remains dismissed")",
                            level: closed ? .info : .warn, tag: "Banner")
                 return closed
             }
@@ -1566,7 +1567,7 @@ package final class NotificationRepositioner: ObservableObject {
             let size: CGSize
         }
         let items: [Item] = banners(in: window).compactMap { ref in
-            guard let id = ref.id, !closedBannerIDs.contains(id) else { return nil }
+            guard let id = ref.id, !bannerDismissals.contains(id) else { return nil }
             let el = ref.element
             let description = el.stringAttribute("AXAttributedDescription") ?? ""
             let isTest = testGroupID != nil && pendingTestTitle.map { description.contains($0) } == true

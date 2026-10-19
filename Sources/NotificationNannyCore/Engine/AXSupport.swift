@@ -42,15 +42,15 @@ extension AXUIElement {
     /// that stays the same for as long as that banner is up.
     var identifier: String? { stringAttribute(kAXIdentifierAttribute as String) }
 
-    /// Performs a custom action by its display name. Custom actions are reported as
-    /// "Name:Close\nTarget:0x0\nSelector:(null)", so match on the name line.
+    /// Resolves an English close-action key against Notification Center's own
+    /// localized action names, then performs the exact token returned by AX.
     /// Returns false when the element offers no such action.
     @discardableResult
     func performCustomAction(named name: String) -> Bool {
         var ref: CFArray?
         guard AXUIElementCopyActionNames(self, &ref) == .success,
               let names = ref as? [String],
-              let action = names.first(where: { $0 == name || $0.hasPrefix("Name:\(name)\n") })
+              let action = NotificationCloseAction.named(name, in: names)
         else { return false }
         return AXUIElementPerformAction(self, action as CFString) == .success
     }
